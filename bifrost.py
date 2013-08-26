@@ -154,7 +154,7 @@ class OSC_data:
             idx = int(var[3:])
             fsuffix = '.ooe.snap'
             filename = self.template + fsuffix
-            if os.stat(filename).st_size < self.nx*self.ny*self.nz*(idx+1)*dsize
+            if os.stat(filename).st_size < self.nx*self.ny*self.nz*(idx+1)*dsize:
                 raise ValueError('OOEVar level out of range.')
         else:
             raise ValueError('getvar: variable %s not available. Available vars:'
