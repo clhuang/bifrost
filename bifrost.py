@@ -150,6 +150,12 @@ class OSC_data:
 
             if not os.path.isfile(filename):
                 filename = self.template + '.snap'
+        elif isOOEVar(var):
+            idx = int(var[3:])
+            fsuffix = '.ooe.snap'
+            filename = self.template + fsuffix
+            if os.stat(filename).st_size < self.nx*self.ny*self.nz*(idx+1)*dsize
+                raise ValueError('OOEVar level out of range.')
         else:
             raise ValueError('getvar: variable %s not available. Available vars:'
                   % (var) + '\n' + repr(self.auxvars + self.snapvars + self.hionvars + self.compvars))
@@ -164,7 +170,6 @@ class OSC_data:
             dsize = 4
         else:
             raise ValueError('getvar: datatype %s not supported' % self.dtype)
-
 
         offset = self.nx*self.ny*self.nz*idx*dsize
 
@@ -213,6 +218,15 @@ class OSC_data:
         return
 
     #-----------------------------------------------------------------------
+
+    def getooevar(self,level,slice=None):
+        ''' Gets ion data. level is the ionization level number'''
+        return getvar('lvl' + str(level))
+
+    #-----------------------------------------------------------------------
+
+    def isOOEVar(var):
+        return re.match('ion[0-9]+', var)
 
     def init_vars(self):
         ''' Memmaps aux and snap variables, and maps them to methods. '''
