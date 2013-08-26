@@ -123,6 +123,13 @@ class OSC_data:
 
         import os
 
+        if var == 'x':
+            return self.x
+        elif var == 'y':
+            return self.y
+        elif var == 'z':
+            return self.z
+
         # find in which file the variable is
         if var in self.compvars:
             # if variable is composite, use getcompvar
@@ -599,6 +606,28 @@ class Rhoeetab:
 
     #-------------------------------------------------------------------------------------
 
+    def get_table(self, out='ne', bine=None, order=1):
+        import scipy.ndimage as ndimage
+
+        qdict = {'ne':'lnne', 'tg':'tgt', 'pg':'lnpg', 'kr':'lnkr',
+                 'eps':'epstab', 'opa':'opatab', 'temp':'temtab'  }
+
+        if out in ['ne tg pg kr'.split()] and not self.eosload:
+            raise ValueError("(EEE) tab_interp: EOS table not loaded!")
+
+        if out in ['opa eps temp'.split()] and not self.radload:
+            raise ValueError("(EEE) tab_interp: rad table not loaded!")
+
+        quant = getattr(self, qdict[out])
+
+        if out in ['opa eps temp'.split()]:
+            if bin is None:
+                print("(WWW) tab_interp: radiation bin not set, using first bin.")
+                bin = 0
+            quant = quant[:,:,bin]
+
+        return quant
+
 
     def tab_interp(self, rho, ei, out='ne', bin=None, order=1):
         ''' Interpolates the EOS/rad table for the required quantity in out.
@@ -836,4 +865,3 @@ def ne_rt_table(rho, temp, order=1, tabfile=None):
 
 
     return 10**result*rho/tt['grph']
-
