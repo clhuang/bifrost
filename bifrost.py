@@ -4,6 +4,7 @@
 
 import numpy as N
 import os
+import re
 
 class OSC_data:
     def __init__(self, snap, template='qsmag-by00_t%03i', meshfile=None, fdir='.',
@@ -26,7 +27,7 @@ class OSC_data:
 
         # read mesh file
         if meshfile is None:
-            meshfile = self.params['meshfile'].strip()
+            meshfile = fdir + '/' + self.params['meshfile'].strip()
 
         if not os.path.isfile(meshfile):
             raise IOError('Mesh file %s does not exist, aborting.' % meshfile)
@@ -157,11 +158,11 @@ class OSC_data:
 
             if not os.path.isfile(filename):
                 filename = self.template + '.snap'
-        elif isOOEVar(var):
+        elif re.match('ion[0-9]+', var): #is OOEVar
             idx = int(var[3:])
             fsuffix = '.ooe.snap'
             filename = self.template + fsuffix
-            if os.stat(filename).st_size < self.nx*self.ny*self.nz*(idx+1)*dsize:
+            if os.stat(filename).st_size < self.nx*self.ny*self.nz*(idx+1)*4:
                 raise ValueError('OOEVar level out of range.')
         else:
             raise ValueError('getvar: variable %s not available. Available vars:'
@@ -228,12 +229,9 @@ class OSC_data:
 
     def getooevar(self,level,slice=None):
         ''' Gets ion data. level is the ionization level number'''
-        return getvar('lvl' + str(level))
+        return self.getvar('ion' + str(level))
 
     #-----------------------------------------------------------------------
-
-    def isOOEVar(var):
-        return re.match('ion[0-9]+', var)
 
     def init_vars(self):
         ''' Memmaps aux and snap variables, and maps them to methods. '''
