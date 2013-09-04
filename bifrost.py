@@ -782,84 +782,195 @@ def subs2grph(subsfile):
 
     return N.sum(ab*am)
 
+#-----------------------------------------------------------------------------------------
+
+class Opatab:
+    def __init__(self, tabname=None, fdir='.', big_endian=False, dtype='f4',
+                 verbose=True,lambd=100.0):
+
+        self.fdir = fdir
+        self.dtype = dtype
+        self.verbose = verbose
+        self.big_endian = big_endian
+        self.lambd = lambd
+        self.radload = False
+        self.teinit = 4.0
+        self.dte = 0.1
+        # read table file and calculate parameters
+        if tabname is None:
+            tabname = '%s/ionization.dat' % (fdir)
+
+        self.tabname = tabname
+        # load table(s)
+        self.load_opa_table()
+
+        return
 
 #-----------------------------------------------------------------------------------------
 
-def ne_rt_table(rho, temp, order=1, tabfile=None):
-    ''' Calculates electron density by interpolating the rho/temp table.
-        Based on Mats Carlsson's ne_rt_table.pro.
+    def hopac(self):
+        ''' Calculates the photoionization cross sections given by
+        from anzer & heinzel apj 622: 714-721, 2005, march 20
+        these clowns have a couple of great big typos in their reported c's.... correct values to
+        be found in rumph et al 1994 aj, 107: 2108, june 1994
 
-        IN: rho (in g/cm^3),
-            temp (in K),
-
-        OPTIONAL: order (interpolation order 1: linear, 3: cubic),
-                  tabfile (path of table file)
-
-        OUT: electron density (in g/cm^3)
-
+        gaunt factors are set to 0.99 for h and 0.85 for heii, which should be good enough
+        for the purposes of this code
         '''
-    import os
-    import scipy.interpolate as interp
-    import scipy.ndimage as ndimage
-    from scipy.io.idl import readsav
+
+        ghi=0.99
+        o0=7.91e-18 # cm^2
+
+        if self.lambd <= 912. :
+            ohi=o0*ghi*(self.lambd/912.)**3 #double asterisks???
+
+            return ohi
+#-----------------------------------------------------------------------------------------
+
+    def heiopac(self):
+        ''' Calculates the photoionization cross sections given by
+        from anzer & heinzel apj 622: 714-721, 2005, march 20
+        these clowns have a couple of great big typos in their reported c's.... correct values to
+        be found in rumph et al 1994 aj, 107: 2108, june 1994
+
+        gaunt factors are set to 0.99 for h and 0.85 for heii, which should be good enough
+        for the purposes of this code
+        '''
+
+        c=[-2.953607e1,7.083061e0,8.678646e-1,-1.221932e0,4.052997e-2,1.317109e-1,-3.265795e-2,2.500933e-3]
+
+        ohei=0.
+        if self.lambd <= 912. :
+            #ohei=0.
+            if self.lambd <= 504. :
+                for i in range(8):
+                    ohei=c[i]*(N.log10(self.lambd))**i+ohei
+                ohei=10.0**ohei
+
+        return ohei
+
+#-----------------------------------------------------------------------------------------
+
+    def heiiopac(self):
+        ''' Calculates the photoionization cross sections given by
+        from anzer & heinzel apj 622: 714-721, 2005, march 20
+        these clowns have a couple of great big typos in their reported c's.... correct values to
+        be found in rumph et al 1994 aj, 107: 2108, june 1994
+
+        gaunt factors are set to 0.99 for h and 0.85 for heii, which should be good enough
+        for the purposes of this code
+        '''
+
+        gheii=0.85
+        o0=7.91e-18 # cm^2
+
+        oheii=0.
+        if self.lambd <= 912. :
+            #oheii=0.
+            if self.lambd <= 228. :
+                oheii=16.*o0*gheii*(self.lambd/912.)**3
+
+        return oheii
+
+#------------------------------------------------------------------------------------------
+
+    def load_opa_table(self, tabname=None):
+       ''' Loads ionizationstate table. '''
+
+       if tabname is None:
+           tabname = '%s/%s' % (self.fdir, 'ionization.dat')
+
+       eostab = Rhoeetab(fdir=self.fdir)
+
+       nei  = eostab.params['neibin']
+       nrho = eostab.params['nrhobin']
+
+       dtype = ('>' if self.big_endian else '<') + self.dtype
+
+       table = N.memmap(tabname, mode='r', shape=(nei,nrho,3), dtype=dtype,
+                        order='F')
+
+       self.ionh = table[:,:,0]
+       self.ionhe  = table[:,:,1]
+       self.ionhei = table[:,:,2]
+
+       self.opaload = True
+       if self.verbose: print('*** Read EOS table from '+tabname)
+
+       return
+
+   #-------------------------------------------------------------------------------------
+
+    def tg_tab_interp(self, order=1):
+       ''' Interpolates the opa table to same format as tg table.
+       '''
+
+       import scipy.ndimage as ndimage
+
+       self.load_opa1d_table()
+
+       rhoeetab = Rhoeetab(fdir=self.fdir)
+       tgTable = rhoeetab.get_table('tg')
 
 
-    print 'DEPRECATION WARNING: this method is deprecated in favour of the Rhoeetab class.'
+       # translate to table coordinates
+       x = (N.log10(tgTable)  -  self.teinit) / self.dte
+
+       # interpolate quantity
+       self.ionh = ndimage.map_coordinates(self.ionh1d, [x], order=order)#, mode='nearest')
+       self.ionhe = ndimage.map_coordinates(self.ionhe1d, [x], order=order)#, mode='nearest')
+       self.ionhei = ndimage.map_coordinates(self.ionhei1d, [x], order=order)#, mode='nearest')
+
+       return
+
+#-----------------------------------------------------------------------------------------
+
+    def h_he_absorb(self,lambd=None):
+   # ''' from anzer & heinzel apj 622: 714-721, 2005, march 2  '''
+
+       rhe=0.1
+       epsilon=1.e-20
+
+       if lambd is None:
+           lambd = self.lambd
+       self.lambd=lambd
+
+       self.tg_tab_interp()
+
+       ion_h=self.ionh
+       ion_he=self.ionhe
+
+       ion_hei=self.ionhei
+
+       ohi=self.hopac()
+       ohei=self.heiopac()
+       oheii=self.heiiopac()
 
 
-    if tabfile is None:
-        tabfile = 'ne_rt_table.idlsave'
+       arr = (1-ion_h)*ohi+rhe*((1-ion_he-ion_hei)*ohei+ion_he*oheii)
+       arr[arr < 0] = 0
 
-    # use table in default location if not found
-    if not os.path.isfile(tabfile) and \
-        os.path.isfile(os.getenv('TIAGO_DATA')+'/misc/'+tabfile):
-        tabfile = os.getenv('TIAGO_DATA')+'/misc/'+tabfile
+       return arr
 
+#----------------------------------------------------------------------------------------
 
-    tt = readsav(tabfile, verbose=False)
+    def load_opa1d_table(self, tabname=None):
+       ''' Loads ionizationstate table. '''
 
-    lgrho = N.log10(rho)
+       if tabname is None:
+           tabname = '%s/%s' % (self.fdir, 'ionization1d.dat')
 
-    # warnings for values outside of table
-    tmin  = N.min(temp) ; tmax = N.max(temp)
-    ttmin = N.min(5040./tt['theta_tab']) ; ttmax = N.max(5040./tt['theta_tab'])
+       dtype = ('>' if self.big_endian else '<') + self.dtype
 
-    lrmin  = N.min(lgrho) ; lrmax = N.max(lgrho)
-    tlrmin = N.min(tt['rho_tab']) ; tlrmax = N.max(tt['rho_tab'])
+       table = N.memmap(tabname, mode='r', shape=(41,3), dtype=dtype,
+                        order='F')
 
-    if tmin < ttmin:
-        print('(WWW) ne_rt_table: temperature outside table bounds. ' +
-              'Table Tmin=%.1f, requested Tmin=%.1f' % (ttmin, tmin))
-    if tmax > ttmax:
-        print('(WWW) ne_rt_table: temperature outside table bounds. ' +
-              'Table Tmax=%.1f, requested Tmax=%.1f' % (ttmax, tmax))
-    if lrmin < tlrmin:
-        print('(WWW) ne_rt_table: log density outside of table bounds. ' +
-             'Table log(rho) min=%.2f, requested log(rho) min=%.2f' % (tlrmin, lrmin))
-    if lrmax > tlrmax:
-        print('(WWW) ne_rt_table: log density outside of table bounds. ' +
-             'Table log(rho) max=%.2f, requested log(rho) max=%.2f' % (tlrmax, lrmax))
+       self.ionh1d = table[:,0]
+       self.ionhe1d  = table[:,1]
+       self.ionhei1d = table[:,2]
 
-    ## Tiago: this is for the real thing, global fit 2D interpolation:
-    ##        (commented because it is TREMENDOUSLY SLOW)
-    #x = N.repeat(tt['rho_tab'],  tt['theta_tab'].shape[0])
-    #y = N.tile(  tt['theta_tab'],  tt['rho_tab'].shape[0])
-    ## 2D grid interpolation according to method (default: linear interpolation)
-    #result = interp.griddata(N.transpose([x,y]), tt['ne_rt_table'].ravel(),
-    #                         (lgrho, 5040./temp), method=method)
-    #
-    ## if some values outside of the table, use nearest neighbour
-    #if N.any(N.isnan(result)):
-    #    idx = N.isnan(result)
-    #    near = interp.griddata(N.transpose([x,y]), tt['ne_rt_table'].ravel(),
-    #                            (lgrho, 5040./temp), method='nearest')
-    #    result[idx] = near[idx]
+       self.opaload = True
+       if self.verbose: print('*** Read OPA table from '+tabname)
 
-    ## Tiago: this is the approximate thing (bilinear/cubic interpolation) with ndimage
-    y = (5040./temp - tt['theta_tab'][0])/(tt['theta_tab'][1]-tt['theta_tab'][0])
-    x = (lgrho - tt['rho_tab'][0])/(tt['rho_tab'][1]-tt['rho_tab'][0])
+       return
 
-    result=ndimage.map_coordinates(tt['ne_rt_table'], [x,y], order=order, mode='nearest')
-
-
-    return 10**result*rho/tt['grph']
