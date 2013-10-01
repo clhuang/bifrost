@@ -818,13 +818,14 @@ class Opatab:
         for the purposes of this code
         '''
 
-        ghi=0.99
-        o0=7.91e-18 # cm^2
+        ghi = 0.99
+        o0 = 7.91e-18 # cm^2
 
-        if self.lambd <= 912. :
-            ohi=o0*ghi*(self.lambd/912.)**3 #double asterisks???
+        ohi = 0
+        if self.lambd <= 912:
+            ohi = o0 * ghi * (self.lambd / 912)**3
 
-            return ohi
+        return ohi
 #-----------------------------------------------------------------------------------------
 
     def heiopac(self):
@@ -837,15 +838,15 @@ class Opatab:
         for the purposes of this code
         '''
 
-        c=[-2.953607e1,7.083061e0,8.678646e-1,-1.221932e0,4.052997e-2,1.317109e-1,-3.265795e-2,2.500933e-3]
+        c = [-2.953607e1, 7.083061e0, 8.678646e-1,
+                -1.221932e0, 4.052997e-2, 1.317109e-1,
+                -3.265795e-2, 2.500933e-3]
 
-        ohei=0.
-        if self.lambd <= 912. :
-            #ohei=0.
-            if self.lambd <= 504. :
-                for i in range(8):
-                    ohei=c[i]*(N.log10(self.lambd))**i+ohei
-                ohei=10.0**ohei
+        ohei = 0
+        if self.lambd <= 504:
+            for i, cf in enumerate(c):
+                ohei += cf * (N.log10(self.lambd))**i
+            ohei = 10.0**ohei
 
         return ohei
 
@@ -861,14 +862,12 @@ class Opatab:
         for the purposes of this code
         '''
 
-        gheii=0.85
-        o0=7.91e-18 # cm^2
+        gheii = 0.85
+        o0 = 7.91e-18 # cm^2
 
-        oheii=0.
-        if self.lambd <= 912. :
-            #oheii=0.
-            if self.lambd <= 228. :
-                oheii=16.*o0*gheii*(self.lambd/912.)**3
+        oheii = 0
+        if self.lambd <= 228:
+            oheii = 16 * o0 * gheii * (self.lambd / 912)**3
 
         return oheii
 
@@ -933,21 +932,21 @@ class Opatab:
 
        if lambd is None:
            lambd = self.lambd
-       self.lambd=lambd
+       self.lambd = lambd
 
        self.tg_tab_interp()
 
-       ion_h=self.ionh
-       ion_he=self.ionhe
+       ion_h = self.ionh
+       ion_he = self.ionhe
 
        ion_hei=self.ionhei
 
-       ohi=self.hopac()
-       ohei=self.heiopac()
-       oheii=self.heiiopac()
+       ohi = self.hopac()
+       ohei = self.heiopac()
+       oheii = self.heiiopac()
 
 
-       arr = (1-ion_h)*ohi+rhe*((1-ion_he-ion_hei)*ohei+ion_he*oheii)
+       arr = (1 - ion_h) * ohi + rhe * ((1 - ion_he - ion_hei) * ohei + ion_he * oheii)
        arr[arr < 0] = 0
 
        return arr
