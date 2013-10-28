@@ -823,7 +823,7 @@ class Opatab:
 
         ohi = 0
         if self.lambd <= 912:
-            ohi = o0 * ghi * (self.lambd / 912)**3
+            ohi = o0 * ghi * (self.lambd / 912.0)**3
 
         return ohi
 #-----------------------------------------------------------------------------------------
@@ -867,7 +867,7 @@ class Opatab:
 
         oheii = 0
         if self.lambd <= 228:
-            oheii = 16 * o0 * gheii * (self.lambd / 912)**3
+            oheii = 16 * o0 * gheii * (self.lambd / 912.0)**3
 
         return oheii
 
@@ -930,9 +930,8 @@ class Opatab:
        rhe=0.1
        epsilon=1.e-20
 
-       if lambd is None:
-           lambd = self.lambd
-       self.lambd = lambd
+       if lambd is not None:
+           self.lambd = lambd
 
        self.tg_tab_interp()
 
@@ -948,6 +947,10 @@ class Opatab:
 
        arr = (1 - ion_h) * ohi + rhe * ((1 - ion_he - ion_hei) * ohei + ion_he * oheii)
        arr[arr < 0] = 0
+       '''
+       Gets the opacities for a particular wavelength of light.
+       If lambd is None, then looks at the current level for wavelength
+       '''
 
        return arr
 
