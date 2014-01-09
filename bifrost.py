@@ -30,6 +30,9 @@ class OSC_data:
             meshfile = fdir + '/' + self.params['meshfile'].strip()
 
         if not os.path.isfile(meshfile):
+            meshfile = fdir + '/' + 'mesh.dat'
+
+        if not os.path.isfile(meshfile):
             raise IOError('Mesh file %s does not exist, aborting.' % meshfile)
 
         self.read_mesh(meshfile)
